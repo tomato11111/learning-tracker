@@ -20,25 +20,62 @@ const PORT = process.env.PORT || 3000;
 // ===========================
 
 // Security headers
-app.use(helmet({
+const helmetConfig = {
   crossOriginResourcePolicy: { policy: "cross-origin" }
-}));
+};
 
-// CORS設定 - Chrome拡張機能からのアクセスを許可
+// 本番環境ではHTTPSを強制
+if (process.env.NODE_ENV === 'production' && process.env.ENABLE_HTTPS_ONLY === 'true') {
+  helmetConfig.contentSecurityPolicy = {
+    directives: {
+      defaultSrc: ["'self'"],
+      upgradeInsecureRequests: []
+    }
+  };
+}
+
+app.use(helmet(helmetConfig));
+
+// CORS設定 - Chrome拡張機能と許可されたオリジンからのアクセスを許可
 const allowedOrigins = process.env.ALLOWED_ORIGINS 
-  ? process.env.ALLOWED_ORIGINS.split(',') 
+  ? process.env.ALLOWED_ORIGINS.split(',').map(origin => origin.trim())
   : ['http://localhost:3000'];
+
+console.log('🔒 Allowed Origins:', allowedOrigins);
+console.log('🌍 Environment:', process.env.NODE_ENV || 'development');
 
 app.use(cors({
   origin: function(origin, callback) {
-    // Chrome拡張機能はoriginがnullまたはchrome-extension://で始まる
-    if (!origin || origin.startsWith('chrome-extension://') || allowedOrigins.includes(origin)) {
+    // Chrome拡張機能の場合（originがnullまたはchrome-extension://で始まる）
+    if (!origin || origin.startsWith('chrome-extension://')) {
+      return callback(null, true);
+    }
+    
+    // 許可されたオリジンリストをチェック
+    const isAllowed = allowedOrigins.some(allowed => {
+      // 完全一致
+      if (allowed === origin) return true;
+      
+      // ワイルドカード対応（例: https://*.yourdomain.com）
+      if (allowed.includes('*')) {
+        const pattern = allowed.replace(/\*/g, '.*');
+        const regex = new RegExp(`^${pattern}$`);
+        return regex.test(origin);
+      }
+      
+      return false;
+    });
+    
+    if (isAllowed) {
       callback(null, true);
     } else {
+      console.warn(`⚠️  CORS blocked: ${origin}`);
       callback(new Error('Not allowed by CORS'));
     }
   },
-  credentials: true
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
 // Body parser
@@ -46,8 +83,9 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Logging
+const logFormat = process.env.NODE_ENV === 'production' ? 'combined' : 'dev';
 if (process.env.NODE_ENV !== 'test') {
-  app.use(morgan('dev'));
+  app.use(morgan(logFormat));
 }
 
 // Static files (Dashboard用)
