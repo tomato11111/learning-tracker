@@ -10,6 +10,7 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 const path = require('path');
 const db = require('./db');
+const apiRoutes = require('./routes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -85,12 +86,16 @@ app.get('/api', (req, res) => {
       health: '/health',
       track: 'POST /api/track',
       logs: 'GET /api/logs',
+      stats: 'GET /api/stats',
       dashboard: '/'
     }
   });
 });
 
-// 学習ログ取得エンドポイント（Dashboard用）
+// API routes
+app.use('/api', apiRoutes);
+
+// 学習ログ取得エンドポイント（Dashboard用 - 互換性のため残す）
 app.get('/api/logs', async (req, res) => {
   try {
     const { limit = 50, offset = 0 } = req.query;
