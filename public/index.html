@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Passive Learning Tracker - Dashboard</title>
   <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 </head>
 <body>
   <div class="container">
@@ -47,6 +48,32 @@
         <div class="stat-info">
           <div class="stat-value" id="summarized-logs">-</div>
           <div class="stat-label">AI要約済み</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Analytics Section -->
+    <section class="analytics-section">
+      <h2 class="section-title">📈 学習分析</h2>
+      
+      <!-- Heatmap -->
+      <div class="analytics-card">
+        <h3 class="analytics-title">学習アクティビティ（過去365日）</h3>
+        <div id="heatmap-container" class="heatmap-container">
+          <div id="heatmap-loading" class="analytics-loading">読み込み中...</div>
+          <div id="heatmap" class="heatmap"></div>
+        </div>
+      </div>
+      
+      <!-- Trends Chart -->
+      <div class="analytics-card">
+        <h3 class="analytics-title">学習時間の推移</h3>
+        <div class="chart-controls">
+          <button class="chart-btn active" data-period="weekly">週次</button>
+          <button class="chart-btn" data-period="monthly">月次</button>
+        </div>
+        <div class="chart-container">
+          <canvas id="trendsChart"></canvas>
         </div>
       </div>
     </section>

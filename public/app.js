@@ -351,3 +351,219 @@ async function init() {
 
 // ページ読み込み完了時に初期化
 document.addEventListener('DOMContentLoaded', init);
+
+// ===========================
+// Analytics Functions
+// ===========================
+
+let trendsChart = null;
+let currentPeriod = 'weekly';
+
+/**
+ * ヒートマップデータを読み込む
+ */
+async function loadHeatmap() {
+  try {
+    const response = await fetch('/api/analytics/heatmap?days=365');
+    const result = await response.json();
+    
+    if (result.success) {
+      renderHeatmap(result.data);
+    }
+  } catch (error) {
+    console.error('Failed to load heatmap:', error);
+    document.getElementById('heatmap-loading').textContent = 'データの読み込みに失敗しました';
+  }
+}
+
+/**
+ * ヒートマップを描画
+ * @param {Array} data - ヒートマップデータ
+ */
+function renderHeatmap(data) {
+  const heatmapEl = document.getElementById('heatmap');
+  const loadingEl = document.getElementById('heatmap-loading');
+  
+  loadingEl.style.display = 'none';
+  heatmapEl.innerHTML = '';
+  
+  // 過去365日分の日付を生成
+  const days = [];
+  for (let i = 364; i >= 0; i--) {
+    const date = new Date();
+    date.setDate(date.getDate() - i);
+    days.push(date.toISOString().split('T')[0]);
+  }
+  
+  // データをマップに変換
+  const dataMap = {};
+  data.forEach(item => {
+    dataMap[item.date] = item;
+  });
+  
+  // セルを生成
+  days.forEach(date => {
+    const cell = document.createElement('div');
+    cell.className = 'heatmap-cell';
+    
+    const dayData = dataMap[date];
+    const level = dayData ? dayData.level : 0;
+    const totalSeconds = dayData ? dayData.totalSeconds : 0;
+    const logCount = dayData ? dayData.logCount : 0;
+    
+    cell.setAttribute('data-level', level);
+    cell.setAttribute('data-date', date);
+    
+    // ツールチップ
+    const tooltip = document.createElement('div');
+    tooltip.className = 'heatmap-tooltip';
+    
+    const minutes = Math.floor(totalSeconds / 60);
+    tooltip.textContent = `${date}: ${minutes}分 (${logCount}ページ)`;
+    
+    cell.appendChild(tooltip);
+    heatmapEl.appendChild(cell);
+  });
+}
+
+/**
+ * トレンドグラフを読み込む
+ * @param {string} period - 'weekly' または 'monthly'
+ */
+async function loadTrends(period = 'weekly') {
+  try {
+    const response = await fetch(`/api/analytics/trends?period=${period}`);
+    const result = await response.json();
+    
+    if (result.success) {
+      renderTrendsChart(result.data, period);
+      currentPeriod = period;
+    }
+  } catch (error) {
+    console.error('Failed to load trends:', error);
+  }
+}
+
+/**
+ * トレンドグラフを描画
+ * @param {Array} data - トレンドデータ
+ * @param {string} period - 期間
+ */
+function renderTrendsChart(data, period) {
+  const ctx = document.getElementById('trendsChart');
+  
+  // 既存のチャートを破棄
+  if (trendsChart) {
+    trendsChart.destroy();
+  }
+  
+  // ラベルとデータを準備
+  const labels = data.map(item => item.period);
+  const learningTime = data.map(item => Math.floor(item.total_seconds / 60)); // 分に変換
+  const logCounts = data.map(item => item.log_count);
+  
+  trendsChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [
+        {
+          label: '学習時間（分）',
+          data: learningTime,
+          borderColor: '#667eea',
+          backgroundColor: 'rgba(102, 126, 234, 0.1)',
+          borderWidth: 3,
+          fill: true,
+          tension: 0.4,
+          yAxisID: 'y'
+        },
+        {
+          label: '学習ページ数',
+          data: logCounts,
+          borderColor: '#10b981',
+          backgroundColor: 'rgba(16, 185, 129, 0.1)',
+          borderWidth: 2,
+          fill: true,
+          tension: 0.4,
+          yAxisID: 'y1'
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: {
+        mode: 'index',
+        intersect: false
+      },
+      plugins: {
+        legend: {
+          display: true,
+          position: 'top'
+        },
+        tooltip: {
+          backgroundColor: 'rgba(0, 0, 0, 0.8)',
+          padding: 12,
+          cornerRadius: 8
+        }
+      },
+      scales: {
+        y: {
+          type: 'linear',
+          display: true,
+          position: 'left',
+          title: {
+            display: true,
+            text: '学習時間（分）'
+          },
+          beginAtZero: true
+        },
+        y1: {
+          type: 'linear',
+          display: true,
+          position: 'right',
+          title: {
+            display: true,
+            text: 'ページ数'
+          },
+          beginAtZero: true,
+          grid: {
+            drawOnChartArea: false
+          }
+        }
+      }
+    }
+  });
+}
+
+/**
+ * チャート期間切り替えボタンの設定
+ */
+function setupChartControls() {
+  const chartBtns = document.querySelectorAll('.chart-btn');
+  
+  chartBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      chartBtns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      
+      const period = btn.getAttribute('data-period');
+      loadTrends(period);
+    });
+  });
+}
+
+// ===========================
+// Initialize Analytics
+// ===========================
+
+// 既存のinit関数を拡張
+const originalInit = init;
+init = async function() {
+  await originalInit();
+  
+  // アナリティクスの初期化
+  loadHeatmap();
+  loadTrends('weekly');
+  setupChartControls();
+};
