@@ -235,4 +235,188 @@ router.get('/stats', async (req, res) => {
   }
 });
 
+/**
+ * GET /api/logs/paginated
+ * ページネーション付きで学習ログを取得（最適化版）
+ */
+router.get('/logs/paginated', async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const offset = (page - 1) * limit;
+    
+    // フィルター条件
+    const { status, summarized, search } = req.query;
+    
+    let whereConditions = [];
+    let params = [];
+    
+    // ステータスフィルター
+    if (status && status !== 'all') {
+      whereConditions.push('status = ?');
+      params.push(status);
+    }
+    
+    // 要約フィルター
+    if (summarized === 'true') {
+      whereConditions.push('ai_summary IS NOT NULL');
+    } else if (summarized === 'false') {
+      whereConditions.push('ai_summary IS NULL');
+    }
+    
+    // 検索フィルター
+    if (search) {
+      whereConditions.push('(title LIKE ? OR url LIKE ?)');
+      params.push(`%${search}%`, `%${search}%`);
+    }
+    
+    const whereClause = whereConditions.length > 0 
+      ? `WHERE ${whereConditions.join(' AND ')}` 
+      : '';
+    
+    // 総件数を取得（最適化: COUNT クエリ）
+    const countSql = `SELECT COUNT(*) as total FROM learning_logs ${whereClause}`;
+    const [countResult] = await db.query(countSql, params);
+    const totalCount = countResult[0].total;
+    
+    // データ取得（インデックスを活用）
+    const dataSql = `
+      SELECT * FROM learning_logs 
+      ${whereClause}
+      ORDER BY updated_at DESC 
+      LIMIT ? OFFSET ?
+    `;
+    const logs = await db.query(dataSql, [...params, limit, offset]);
+    
+    res.json({
+      success: true,
+      data: logs,
+      pagination: {
+        page,
+        limit,
+        total: totalCount,
+        totalPages: Math.ceil(totalCount / limit),
+        hasNext: page < Math.ceil(totalCount / limit),
+        hasPrev: page > 1
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error fetching paginated logs:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch learning logs',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * GET /api/analytics/heatmap
+ * 学習時間のヒートマップデータを取得（過去365日）
+ */
+router.get('/analytics/heatmap', async (req, res) => {
+  try {
+    const days = parseInt(req.query.days) || 365;
+    
+    const sql = `
+      SELECT 
+        DATE(updated_at) as date,
+        SUM(progress_time) as total_seconds,
+        COUNT(*) as log_count
+      FROM learning_logs
+      WHERE updated_at >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
+      GROUP BY DATE(updated_at)
+      ORDER BY date ASC
+    `;
+    
+    const data = await db.query(sql, [days]);
+    
+    res.json({
+      success: true,
+      data: data.map(row => ({
+        date: row.date,
+        totalSeconds: row.total_seconds,
+        logCount: row.log_count,
+        level: calculateHeatmapLevel(row.total_seconds)
+      }))
+    });
+    
+  } catch (error) {
+    console.error('Error fetching heatmap data:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch heatmap data',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * GET /api/analytics/trends
+ * 週次/月次の学習トレンドを取得
+ */
+router.get('/analytics/trends', async (req, res) => {
+  try {
+    const period = req.query.period || 'weekly'; // 'weekly' or 'monthly'
+    const limit = parseInt(req.query.limit) || 12;
+    
+    let sql;
+    if (period === 'monthly') {
+      sql = `
+        SELECT 
+          DATE_FORMAT(updated_at, '%Y-%m') as period,
+          SUM(progress_time) as total_seconds,
+          COUNT(*) as log_count,
+          COUNT(CASE WHEN ai_summary IS NOT NULL THEN 1 END) as summarized_count
+        FROM learning_logs
+        GROUP BY DATE_FORMAT(updated_at, '%Y-%m')
+        ORDER BY period DESC
+        LIMIT ?
+      `;
+    } else {
+      sql = `
+        SELECT 
+          DATE_FORMAT(updated_at, '%Y-W%u') as period,
+          SUM(progress_time) as total_seconds,
+          COUNT(*) as log_count,
+          COUNT(CASE WHEN ai_summary IS NOT NULL THEN 1 END) as summarized_count
+        FROM learning_logs
+        GROUP BY DATE_FORMAT(updated_at, '%Y-W%u')
+        ORDER BY period DESC
+        LIMIT ?
+      `;
+    }
+    
+    const data = await db.query(sql, [limit]);
+    
+    res.json({
+      success: true,
+      period,
+      data: data.reverse() // 古い順に並べ替え
+    });
+    
+  } catch (error) {
+    console.error('Error fetching trends:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch trends',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * ヒートマップのレベルを計算（0-4）
+ * @param {number} seconds - 学習時間（秒）
+ * @returns {number} レベル (0-4)
+ */
+function calculateHeatmapLevel(seconds) {
+  if (seconds === 0) return 0;
+  if (seconds < 300) return 1;     // 5分未満
+  if (seconds < 900) return 2;     // 15分未満
+  if (seconds < 1800) return 3;    // 30分未満
+  return 4;                        // 30分以上
+}
+
 module.exports = router;

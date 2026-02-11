@@ -20,11 +20,18 @@ CREATE TABLE IF NOT EXISTS learning_logs (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT 'レコード作成日時',
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '最終更新日時',
   
-  -- インデックス
+  -- パフォーマンス最適化のためのインデックス
   INDEX idx_url (url(255)),
   INDEX idx_video_id (video_id),
   INDEX idx_created_at (created_at),
+  INDEX idx_updated_at (updated_at),
   INDEX idx_status (status),
+  INDEX idx_ai_summary (ai_summary(100)),
+  
+  -- 複合インデックス（よく使われるクエリパターンを最適化）
+  INDEX idx_status_updated (status, updated_at),
+  INDEX idx_created_progress (created_at, progress_time),
+  INDEX idx_summary_status (ai_summary(100), status),
   
   -- URLごとに重複を避けるためのユニークインデックス
   UNIQUE KEY unique_url (url(255))
