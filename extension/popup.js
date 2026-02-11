@@ -2,10 +2,33 @@
  * Popup UI Script for Passive Learning Tracker
  */
 
+// API設定を取得
+async function getApiConfig() {
+  try {
+    const stored = await chrome.storage.sync.get(['environment', 'apiEndpoint']);
+    const env = stored.environment || 'development';
+    const baseUrl = env === 'development' 
+      ? 'http://localhost:3000' 
+      : stored.apiEndpoint?.replace('/api/track', '') || 'https://your-domain.com';
+    
+    return {
+      statsEndpoint: `${baseUrl}/api/stats`,
+      dashboardUrl: baseUrl
+    };
+  } catch (error) {
+    console.error('Failed to get config:', error);
+    return {
+      statsEndpoint: 'http://localhost:3000/api/stats',
+      dashboardUrl: 'http://localhost:3000'
+    };
+  }
+}
+
 // 統計情報を取得して表示
 async function loadStats() {
   try {
-    const response = await fetch('http://localhost:3000/api/stats');
+    const config = await getApiConfig();
+    const response = await fetch(config.statsEndpoint);
     
     if (!response.ok) {
       throw new Error('Failed to fetch stats');
@@ -14,7 +37,7 @@ async function loadStats() {
     const result = await response.json();
     const stats = result.data;
     
-    displayStats(stats);
+    displayStats(stats, config.dashboardUrl);
     updateStatus('接続済み');
     
   } catch (error) {
@@ -25,7 +48,7 @@ async function loadStats() {
 }
 
 // 統計情報を表示
-function displayStats(stats) {
+function displayStats(stats, dashboardUrl) {
   const totalMinutes = Math.floor(stats.total_learning_time_seconds / 60);
   const totalHours = Math.floor(totalMinutes / 60);
   const remainingMinutes = totalMinutes % 60;
@@ -62,7 +85,7 @@ function displayStats(stats) {
   
   // ダッシュボードボタンのイベント
   document.getElementById('open-dashboard').addEventListener('click', () => {
-    chrome.tabs.create({ url: 'http://localhost:3000' });
+    chrome.tabs.create({ url: dashboardUrl });
   });
 }
 

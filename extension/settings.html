@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Settings - Passive Learning Tracker</title>
+  <style>
+    body {
+      width: 400px;
+      padding: 20px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+      background: #f8fafc;
+    }
+    
+    h1 {
+      font-size: 20px;
+      margin: 0 0 20px 0;
+      color: #1e293b;
+    }
+    
+    .section {
+      background: white;
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 16px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .section-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #64748b;
+      margin-bottom: 12px;
+    }
+    
+    .form-group {
+      margin-bottom: 16px;
+    }
+    
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 500;
+      color: #475569;
+      margin-bottom: 6px;
+    }
+    
+    input, select {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      font-size: 13px;
+      box-sizing: border-box;
+    }
+    
+    input:focus, select:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+    
+    .help-text {
+      font-size: 12px;
+      color: #94a3b8;
+      margin-top: 4px;
+    }
+    
+    .button {
+      width: 100%;
+      padding: 10px;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+    
+    .button:hover {
+      transform: translateY(-2px);
+    }
+    
+    .button:active {
+      transform: translateY(0);
+    }
+    
+    .status {
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      text-align: center;
+      margin-top: 12px;
+      display: none;
+    }
+    
+    .status.success {
+      background: #d1fae5;
+      color: #065f46;
+      display: block;
+    }
+    
+    .status.error {
+      background: #fee2e2;
+      color: #991b1b;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <h1>⚙️ 設定</h1>
+  
+  <div class="section">
+    <div class="section-title">環境設定</div>
+    
+    <div class="form-group">
+      <label for="environment">環境</label>
+      <select id="environment">
+        <option value="development">開発環境（localhost）</option>
+        <option value="production">本番環境</option>
+      </select>
+      <div class="help-text">使用する環境を選択してください</div>
+    </div>
+    
+    <div class="form-group">
+      <label for="apiEndpoint">API エンドポイント</label>
+      <input 
+        type="text" 
+        id="apiEndpoint" 
+        placeholder="https://your-domain.com/api/track"
+      >
+      <div class="help-text">バックエンドAPIのURLを入力してください</div>
+    </div>
+  </div>
+  
+  <div class="section">
+    <div class="section-title">現在の設定</div>
+    <div style="font-size: 12px; color: #64748b;">
+      <div style="margin-bottom: 8px;">
+        <strong>環境:</strong> <span id="currentEnv">-</span>
+      </div>
+      <div>
+        <strong>API:</strong> <span id="currentApi" style="word-break: break-all;">-</span>
+      </div>
+    </div>
+  </div>
+  
+  <button class="button" id="saveBtn">💾 設定を保存</button>
+  
+  <div class="status" id="status"></div>
+  
+  <script src="settings.js"></script>
+</body>
+</html>

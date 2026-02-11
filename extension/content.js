@@ -6,13 +6,40 @@
 (function() {
   'use strict';
 
-  // 設定
-  const CONFIG = {
-    API_ENDPOINT: 'http://localhost:3000/api/track',
-    TRACKING_INTERVAL: 60000, // 1分ごとに送信
-    STORAGE_KEY: 'pending_learning_logs',
-    MIN_TRACKING_TIME: 5, // 最低5秒以上の滞在で記録開始
-  };
+  // 設定を動的に読み込む
+  let CONFIG = null;
+  
+  // 設定の初期化
+  async function initConfig() {
+    try {
+      // Chrome Storageから設定を取得
+      const stored = await chrome.storage.sync.get(['apiEndpoint', 'environment']);
+      
+      const isDevelopment = !stored.environment || stored.environment === 'development';
+      
+      CONFIG = {
+        API_ENDPOINT: stored.apiEndpoint || (isDevelopment 
+          ? 'http://localhost:3000/api/track' 
+          : 'https://your-domain.com/api/track'),
+        TRACKING_INTERVAL: 60000, // 1分ごとに送信
+        STORAGE_KEY: 'pending_learning_logs',
+        MIN_TRACKING_TIME: 5, // 最低5秒以上の滞在で記録開始
+        ENVIRONMENT: isDevelopment ? 'development' : 'production'
+      };
+      
+      console.log('🔧 Config loaded:', CONFIG.ENVIRONMENT, CONFIG.API_ENDPOINT);
+    } catch (error) {
+      // Fallback to default (development)
+      CONFIG = {
+        API_ENDPOINT: 'http://localhost:3000/api/track',
+        TRACKING_INTERVAL: 60000,
+        STORAGE_KEY: 'pending_learning_logs',
+        MIN_TRACKING_TIME: 5,
+        ENVIRONMENT: 'development'
+      };
+      console.warn('⚠️  Using default config:', error);
+    }
+  }
 
   // 学習時間の追跡
   let startTime = Date.now();
@@ -247,7 +274,10 @@
   /**
    * 初期化
    */
-  function init() {
+  async function init() {
+    // 設定を初期化
+    await initConfig();
+    
     console.log('🚀 Passive Learning Tracker initialized');
     console.log('📄 Page:', pageTitle);
     console.log('🔗 URL:', currentUrl);
