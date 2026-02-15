@@ -1,6 +1,10 @@
 # Passive Learning Tracker
 
+**Version 2.1** (Bug Fix Release)
+
 **入力ゼロの学習ログ** - 自動記録＆AI要約システム
+
+> 📌 **v2.1 更新**: 長いURL（255文字超）の衝突バグを修正しました。詳細は [BUGFIX_v2.1.md](./BUGFIX_v2.1.md) をご覧ください。
 
 ## 概要
 

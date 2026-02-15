@@ -4,8 +4,18 @@
  */
 
 const express = require('express');
+const crypto = require('crypto');
 const db = require('./db');
 const router = express.Router();
+
+/**
+ * URLのSHA256ハッシュを計算する関数
+ * @param {string} url - URL文字列
+ * @returns {string} SHA256ハッシュ値（64文字の16進数）
+ */
+function calculateUrlHash(url) {
+  return crypto.createHash('sha256').update(url).digest('hex');
+}
 
 /**
  * YouTube Video IDを抽出する関数
@@ -69,13 +79,16 @@ router.post('/track', async (req, res) => {
       });
     }
     
+    // URLハッシュの計算
+    const urlHash = calculateUrlHash(url);
+    
     // YouTube Video IDの抽出
     const videoId = extractYouTubeVideoId(url);
     
-    // Upsert処理: 同じURLが存在する場合は更新、なければ挿入
+    // Upsert処理: 同じurl_hashが存在する場合は更新、なければ挿入
     const sql = `
-      INSERT INTO learning_logs (url, title, video_id, progress_time, status)
-      VALUES (?, ?, ?, ?, ?)
+      INSERT INTO learning_logs (url, url_hash, title, video_id, progress_time, status)
+      VALUES (?, ?, ?, ?, ?, ?)
       ON DUPLICATE KEY UPDATE
         title = VALUES(title),
         video_id = VALUES(video_id),
@@ -86,6 +99,7 @@ router.post('/track', async (req, res) => {
     
     const result = await db.query(sql, [
       url,
+      urlHash,
       title || null,
       videoId,
       parseInt(progress_time) || 0,
@@ -99,6 +113,7 @@ router.post('/track', async (req, res) => {
       data: {
         id: result.insertId || null,
         url,
+        url_hash: urlHash,
         title,
         video_id: videoId,
         progress_time: parseInt(progress_time) || 0,

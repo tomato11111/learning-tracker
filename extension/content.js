@@ -43,53 +43,68 @@
 
   // 学習時間の追跡
   let startTime = Date.now();
-  let totalTimeSpent = 0;
+  let lastTrackedTime = 0; // 最後に送信した時刻（経過秒）
+  let lastYouTubePosition = 0; // 最後に記録したYouTubeの再生位置
   let isTracking = false;
   let trackingInterval = null;
   let pageTitle = document.title;
   let currentUrl = window.location.href;
+  const isYouTube = currentUrl.includes('youtube.com/watch');
 
   /**
-   * YouTube動画の再生時間を取得
-   * @returns {number|null} 現在の再生位置（秒）
+   * YouTube動画の視聴時間（差分）を取得
+   * @returns {number} 前回から視聴した秒数
    */
-  function getYouTubeProgress() {
+  function getYouTubeProgressDelta() {
     try {
       const video = document.querySelector('video');
       if (video && !video.paused) {
-        return Math.floor(video.currentTime);
+        const currentPosition = Math.floor(video.currentTime);
+        
+        // 前回の位置からの差分を計算
+        // シーク（巻き戻し/早送り）を検出した場合は、実際の視聴時間を計算
+        const delta = Math.abs(currentPosition - lastYouTubePosition);
+        
+        // 大きなジャンプ（30秒以上）の場合は、シークと判断してカウントしない
+        if (delta > 30) {
+          console.log(`📹 YouTube seek detected: ${lastYouTubePosition}s → ${currentPosition}s`);
+          lastYouTubePosition = currentPosition;
+          return 0;
+        }
+        
+        lastYouTubePosition = currentPosition;
+        return delta;
       }
     } catch (error) {
       console.error('YouTube progress extraction failed:', error);
     }
-    return null;
+    return 0;
   }
 
   /**
-   * 一般サイトの滞在時間を計算
-   * @returns {number} 滞在時間（秒）
+   * 一般サイトの滞在時間（差分）を計算
+   * @returns {number} 前回から経過した秒数
    */
-  function getPageProgress() {
+  function getPageProgressDelta() {
     const currentTime = Date.now();
-    const elapsedSeconds = Math.floor((currentTime - startTime) / 1000);
-    return elapsedSeconds;
+    const currentElapsed = Math.floor((currentTime - startTime) / 1000);
+    const delta = currentElapsed - lastTrackedTime;
+    lastTrackedTime = currentElapsed;
+    return delta;
   }
 
   /**
-   * 現在の学習進捗を取得
-   * @returns {number} 進捗時間（秒）
+   * 現在の学習進捗（差分）を取得
+   * @returns {number} 前回から学習した秒数
    */
-  function getCurrentProgress() {
-    // YouTube動画の場合は再生位置を優先
-    if (currentUrl.includes('youtube.com/watch')) {
-      const youtubeProgress = getYouTubeProgress();
-      if (youtubeProgress !== null) {
-        return youtubeProgress;
-      }
+  function getCurrentProgressDelta() {
+    // YouTube動画の場合は視聴時間の差分を優先
+    if (isYouTube) {
+      return getYouTubeProgressDelta();
     }
     
-    // それ以外は滞在時間
-    return getPageProgress();
+    // それ以外は滞在時間の差分
+    return getPageProgressDelta();
   }
 
   /**
