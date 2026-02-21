@@ -7,10 +7,10 @@ async function getApiConfig() {
   try {
     const stored = await chrome.storage.sync.get(['environment', 'apiEndpoint']);
     const env = stored.environment || 'development';
-    const baseUrl = env === 'development' 
-      ? 'http://localhost:3000' 
+    const baseUrl = env === 'development'
+      ? 'http://localhost:3000'
       : stored.apiEndpoint?.replace('/api/track', '') || 'https://your-domain.com';
-    
+
     return {
       statsEndpoint: `${baseUrl}/api/stats`,
       dashboardUrl: baseUrl
@@ -29,17 +29,17 @@ async function loadStats() {
   try {
     const config = await getApiConfig();
     const response = await fetch(config.statsEndpoint);
-    
+
     if (!response.ok) {
       throw new Error('Failed to fetch stats');
     }
-    
+
     const result = await response.json();
     const stats = result.data;
-    
+
     displayStats(stats, config.dashboardUrl);
     updateStatus('接続済み');
-    
+
   } catch (error) {
     console.error('Error loading stats:', error);
     displayError();
@@ -52,11 +52,11 @@ function displayStats(stats, dashboardUrl) {
   const totalMinutes = Math.floor(stats.total_learning_time_seconds / 60);
   const totalHours = Math.floor(totalMinutes / 60);
   const remainingMinutes = totalMinutes % 60;
-  
-  const timeDisplay = totalHours > 0 
+
+  const timeDisplay = totalHours > 0
     ? `${totalHours}時間 ${remainingMinutes}分`
     : `${totalMinutes}分`;
-  
+
   const html = `
     <div class="stats">
       <div class="stat-item">
@@ -80,9 +80,9 @@ function displayStats(stats, dashboardUrl) {
       📊 ダッシュボードを開く
     </button>
   `;
-  
+
   document.getElementById('content').innerHTML = html;
-  
+
   // ダッシュボードボタンのイベント
   document.getElementById('open-dashboard').addEventListener('click', () => {
     chrome.tabs.create({ url: dashboardUrl });
@@ -105,9 +105,9 @@ function displayError() {
       🔄 再試行
     </button>
   `;
-  
+
   document.getElementById('content').innerHTML = html;
-  
+
   // 再試行ボタンのイベント
   document.getElementById('retry-button').addEventListener('click', () => {
     document.getElementById('content').innerHTML = '<div class="loading">読み込み中...</div>';

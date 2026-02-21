@@ -28,16 +28,16 @@ const summarizedLogsEl = document.getElementById('summarized-logs');
  */
 function formatDuration(seconds) {
   if (!seconds || seconds === 0) return '0秒';
-  
+
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
   const secs = seconds % 60;
-  
+
   const parts = [];
   if (hours > 0) parts.push(`${hours}時間`);
   if (minutes > 0) parts.push(`${minutes}分`);
   if (secs > 0 || parts.length === 0) parts.push(`${secs}秒`);
-  
+
   return parts.join(' ');
 }
 
@@ -51,17 +51,17 @@ function formatDate(dateString) {
   const year = date.getFullYear();
   const month = date.getMonth() + 1;
   const day = date.getDate();
-  
+
   const today = new Date();
   const yesterday = new Date(today);
   yesterday.setDate(yesterday.getDate() - 1);
-  
+
   if (date.toDateString() === today.toDateString()) {
     return '今日';
   } else if (date.toDateString() === yesterday.toDateString()) {
     return '昨日';
   }
-  
+
   return `${year}年${month}月${day}日`;
 }
 
@@ -95,22 +95,22 @@ async function loadStats() {
   try {
     const response = await fetch('/api/stats');
     const result = await response.json();
-    
+
     if (result.success) {
       const stats = result.data;
-      
+
       // 総学習時間
       const totalSeconds = stats.total_learning_time_seconds || 0;
       const totalMinutes = Math.floor(totalSeconds / 60);
       const totalHours = Math.floor(totalMinutes / 60);
       const remainingMinutes = totalMinutes % 60;
-      
+
       if (totalHours > 0) {
         totalTimeEl.textContent = `${totalHours}時間 ${remainingMinutes}分`;
       } else {
         totalTimeEl.textContent = `${totalMinutes}分`;
       }
-      
+
       totalPagesEl.textContent = stats.total_pages || 0;
       youtubeVideosEl.textContent = stats.youtube_videos || 0;
       summarizedLogsEl.textContent = stats.summarized_logs || 0;
@@ -126,10 +126,10 @@ async function loadStats() {
 async function loadLogs() {
   try {
     showLoading();
-    
+
     const response = await fetch('/api/logs?limit=100');
     const result = await response.json();
-    
+
     if (result.success) {
       allLogs = result.data;
       filterAndDisplayLogs();
@@ -150,13 +150,13 @@ function filterAndDisplayLogs() {
   // 検索フィルター
   const searchTerm = searchInput.value.toLowerCase();
   const statusFilter = filterStatus.value;
-  
+
   filteredLogs = allLogs.filter(log => {
     // 検索条件
-    const matchesSearch = !searchTerm || 
+    const matchesSearch = !searchTerm ||
       (log.title && log.title.toLowerCase().includes(searchTerm)) ||
       (log.url && log.url.toLowerCase().includes(searchTerm));
-    
+
     // ステータス条件
     let matchesStatus = true;
     if (statusFilter === 'summarized') {
@@ -164,10 +164,10 @@ function filterAndDisplayLogs() {
     } else if (statusFilter === 'unsummarized') {
       matchesStatus = log.ai_summary === null;
     }
-    
+
     return matchesSearch && matchesStatus;
   });
-  
+
   displayLogs(filteredLogs);
 }
 
@@ -180,14 +180,14 @@ function displayLogs(logs) {
     showNoData();
     return;
   }
-  
+
   // 日付ごとにグループ化
   const groupedLogs = groupLogsByDate(logs);
-  
+
   // HTML生成
   const html = Object.entries(groupedLogs).map(([date, dateLogs]) => {
     const logsHtml = dateLogs.map(log => createLogCard(log)).join('');
-    
+
     return `
       <div class="date-group">
         <div class="date-header">
@@ -197,7 +197,7 @@ function displayLogs(logs) {
       </div>
     `;
   }).join('');
-  
+
   logsContainer.innerHTML = html;
   logsContainer.style.display = 'flex';
   noDataElement.style.display = 'none';
@@ -215,11 +215,11 @@ function createLogCard(log) {
     'completed': '完了',
     'paused': '一時停止'
   }[log.status] || log.status;
-  
-  const summaryHtml = log.ai_summary 
+
+  const summaryHtml = log.ai_summary
     ? `<div class="log-summary">${log.ai_summary}</div>`
     : '';
-  
+
   return `
     <div class="log-card">
       <div class="log-header">
@@ -250,7 +250,7 @@ function createLogCard(log) {
  */
 function groupLogsByDate(logs) {
   const grouped = {};
-  
+
   logs.forEach(log => {
     const date = formatDate(log.updated_at);
     if (!grouped[date]) {
@@ -258,7 +258,7 @@ function groupLogsByDate(logs) {
     }
     grouped[date].push(log);
   });
-  
+
   return grouped;
 }
 
@@ -307,19 +307,19 @@ function setupEventListeners() {
   searchInput.addEventListener('input', () => {
     filterAndDisplayLogs();
   });
-  
+
   // ステータスフィルター
   filterStatus.addEventListener('change', () => {
     filterAndDisplayLogs();
   });
-  
+
   // 更新ボタン
   refreshBtn.addEventListener('click', async () => {
     refreshBtn.textContent = '🔄 更新中...';
     refreshBtn.disabled = true;
-    
+
     await Promise.all([loadStats(), loadLogs()]);
-    
+
     refreshBtn.textContent = '🔄 更新';
     refreshBtn.disabled = false;
   });
@@ -330,27 +330,28 @@ function setupEventListeners() {
  */
 async function init() {
   console.log('Dashboard initializing...');
-  
+
   setupEventListeners();
-  
+
   // 初期データ読み込み
   await Promise.all([
     loadStats(),
     loadLogs()
   ]);
-  
+
   // 5分ごとに自動更新
   setInterval(() => {
     console.log('Auto-refreshing data...');
     loadStats();
     loadLogs();
   }, 5 * 60 * 1000);
-  
+
   console.log('Dashboard initialized');
 }
 
 // ページ読み込み完了時に初期化
-document.addEventListener('DOMContentLoaded', init);
+// ページ読み込み完了時に初期化 (Moved to bottom to allow extensions)
+// document.addEventListener('DOMContentLoaded', init); 
 
 // ===========================
 // Analytics Functions
@@ -366,7 +367,7 @@ async function loadHeatmap() {
   try {
     const response = await fetch('/api/analytics/heatmap?days=365');
     const result = await response.json();
-    
+
     if (result.success) {
       renderHeatmap(result.data);
     }
@@ -383,10 +384,10 @@ async function loadHeatmap() {
 function renderHeatmap(data) {
   const heatmapEl = document.getElementById('heatmap');
   const loadingEl = document.getElementById('heatmap-loading');
-  
+
   loadingEl.style.display = 'none';
   heatmapEl.innerHTML = '';
-  
+
   // 過去365日分の日付を生成
   const days = [];
   for (let i = 364; i >= 0; i--) {
@@ -394,33 +395,33 @@ function renderHeatmap(data) {
     date.setDate(date.getDate() - i);
     days.push(date.toISOString().split('T')[0]);
   }
-  
+
   // データをマップに変換
   const dataMap = {};
   data.forEach(item => {
     dataMap[item.date] = item;
   });
-  
+
   // セルを生成
   days.forEach(date => {
     const cell = document.createElement('div');
     cell.className = 'heatmap-cell';
-    
+
     const dayData = dataMap[date];
     const level = dayData ? dayData.level : 0;
     const totalSeconds = dayData ? dayData.totalSeconds : 0;
     const logCount = dayData ? dayData.logCount : 0;
-    
+
     cell.setAttribute('data-level', level);
     cell.setAttribute('data-date', date);
-    
+
     // ツールチップ
     const tooltip = document.createElement('div');
     tooltip.className = 'heatmap-tooltip';
-    
+
     const minutes = Math.floor(totalSeconds / 60);
     tooltip.textContent = `${date}: ${minutes}分 (${logCount}ページ)`;
-    
+
     cell.appendChild(tooltip);
     heatmapEl.appendChild(cell);
   });
@@ -434,7 +435,7 @@ async function loadTrends(period = 'weekly') {
   try {
     const response = await fetch(`/api/analytics/trends?period=${period}`);
     const result = await response.json();
-    
+
     if (result.success) {
       renderTrendsChart(result.data, period);
       currentPeriod = period;
@@ -451,17 +452,17 @@ async function loadTrends(period = 'weekly') {
  */
 function renderTrendsChart(data, period) {
   const ctx = document.getElementById('trendsChart');
-  
+
   // 既存のチャートを破棄
   if (trendsChart) {
     trendsChart.destroy();
   }
-  
+
   // ラベルとデータを準備
   const labels = data.map(item => item.period);
   const learningTime = data.map(item => Math.floor(item.total_seconds / 60)); // 分に変換
   const logCounts = data.map(item => item.log_count);
-  
+
   trendsChart = new Chart(ctx, {
     type: 'line',
     data: {
@@ -541,12 +542,12 @@ function renderTrendsChart(data, period) {
  */
 function setupChartControls() {
   const chartBtns = document.querySelectorAll('.chart-btn');
-  
+
   chartBtns.forEach(btn => {
     btn.addEventListener('click', () => {
       chartBtns.forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
-      
+
       const period = btn.getAttribute('data-period');
       loadTrends(period);
     });
@@ -559,11 +560,16 @@ function setupChartControls() {
 
 // 既存のinit関数を拡張
 const originalInit = init;
-init = async function() {
+init = async function () {
   await originalInit();
-  
+
   // アナリティクスの初期化
   loadHeatmap();
   loadTrends('weekly');
   setupChartControls();
 };
+
+// ===========================
+// Final Initialization
+// ===========================
+document.addEventListener('DOMContentLoaded', init);
