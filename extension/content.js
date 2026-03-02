@@ -287,6 +287,115 @@
   }
 
   /**
+   * 権限を確認し、必要に応じてバナーを表示
+   */
+  async function checkPermissions() {
+    // ローカルホストまたは既に許可されている場合はスキップ
+    if (currentUrl.startsWith('http://localhost')) {
+      return true;
+    }
+
+    try {
+      const origin = new URL(currentUrl).origin + '/*';
+      const hasPermission = await chrome.permissions.contains({
+        origins: [origin]
+      });
+
+      if (!hasPermission) {
+        showPermissionBanner(origin);
+        return false;
+      }
+      return true;
+    } catch (error) {
+      console.error('Permission check failed:', error);
+      return true; // エラー時は安全のため続行を試める
+    }
+  }
+
+  /**
+   * 権限許可を求めるカスタムバナーを表示
+   */
+  function showPermissionBanner(origin) {
+    if (document.getElementById('plt-permission-banner')) return;
+
+    const banner = document.createElement('div');
+    banner.id = 'plt-permission-banner';
+    banner.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      background: #4f46e5;
+      color: white;
+      padding: 12px 20px;
+      z-index: 999999;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 14px;
+    `;
+
+    const text = document.createElement('div');
+    text.innerHTML = `<strong>Passive Learning Tracker</strong>: このサイト（${new URL(currentUrl).hostname}）で学習記録を有効にしますか？`;
+
+    const actions = document.createElement('div');
+    actions.style.display = 'flex';
+    actions.style.gap = '10px';
+
+    const allowBtn = document.createElement('button');
+    allowBtn.innerText = '有効にする';
+    allowBtn.style.cssText = `
+      background: white;
+      color: #4f46e5;
+      border: none;
+      padding: 6px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+    `;
+
+    const ignoreBtn = document.createElement('button');
+    ignoreBtn.innerText = '今回はしない';
+    ignoreBtn.style.cssText = `
+      background: transparent;
+      color: white;
+      border: 1px solid white;
+      padding: 6px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+    `;
+
+    allowBtn.onclick = async () => {
+      try {
+        const granted = await chrome.permissions.request({
+          origins: [origin]
+        });
+        if (granted) {
+          banner.remove();
+          startTracking();
+        }
+      } catch (error) {
+        console.error('Permission request failed:', error);
+      }
+    };
+
+    ignoreBtn.onclick = () => {
+      banner.remove();
+    };
+
+    actions.appendChild(ignoreBtn);
+    actions.appendChild(allowBtn);
+    banner.appendChild(text);
+    banner.appendChild(actions);
+    document.body.appendChild(banner);
+
+    // ボディにパディングを追加してコンテンツが隠れないようにする
+    document.body.style.paddingTop = '50px';
+  }
+
+  /**
    * 初期化
    */
   async function init() {
@@ -297,8 +406,11 @@
     console.log('📄 Page:', pageTitle);
     console.log('🔗 URL:', currentUrl);
 
-    // ページが表示されている場合のみトラッキング開始
-    if (!document.hidden) {
+    // 権限を確認
+    const isPermitted = await checkPermissions();
+
+    // ページが表示されており、かつ権限がある場合のみトラッキング開始
+    if (!document.hidden && isPermitted) {
       startTracking();
     }
 

@@ -12,10 +12,13 @@
     "storage",
     "tabs",
     "activeTab",
-    "alarms"
+    "alarms",
+    "permissions"
   ],
   "host_permissions": [
-    "http://localhost:3000/*",
+    "http://localhost:3000/*"
+  ],
+  "optional_host_permissions": [
     "https://*/*"
   ],
   "background": {
