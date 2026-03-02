@@ -1,45 +1,47 @@
 -- Passive Learning Tracker Database Schema
--- MySQL 5.7+ / MariaDB 10.2+
-
--- データベースの作成（必要に応じて）
-CREATE DATABASE IF NOT EXISTS passive_learning_tracker
-  DEFAULT CHARACTER SET utf8mb4
-  DEFAULT COLLATE utf8mb4_unicode_ci;
-
-USE passive_learning_tracker;
+-- PostgreSQL (Neon) 対応版
 
 -- 学習ログテーブル
 CREATE TABLE IF NOT EXISTS learning_logs (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  url VARCHAR(2048) NOT NULL COMMENT 'アクセスしたページのURL',
-  title VARCHAR(500) DEFAULT NULL COMMENT 'ページタイトル',
-  video_id VARCHAR(100) DEFAULT NULL COMMENT 'YouTube Video ID (YouTubeの場合のみ)',
-  progress_time INT DEFAULT 0 COMMENT '学習時間（秒）または動画の再生位置',
-  status ENUM('in_progress', 'completed', 'paused') DEFAULT 'in_progress' COMMENT '学習ステータス',
-  ai_summary TEXT DEFAULT NULL COMMENT 'AI生成の要約（30文字以内目安）',
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT 'レコード作成日時',
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '最終更新日時',
-  
-  -- パフォーマンス最適化のためのインデックス
-  INDEX idx_url (url(255)),
-  INDEX idx_video_id (video_id),
-  INDEX idx_created_at (created_at),
-  INDEX idx_updated_at (updated_at),
-  INDEX idx_status (status),
-  INDEX idx_ai_summary (ai_summary(100)),
-  
-  -- 複合インデックス（よく使われるクエリパターンを最適化）
-  INDEX idx_status_updated (status, updated_at),
-  INDEX idx_created_progress (created_at, progress_time),
-  INDEX idx_summary_status (ai_summary(100), status),
-  
-  -- URLごとに重複を避けるためのユニークインデックス
-  UNIQUE KEY unique_url (url(255))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-  COMMENT='学習ログを保存するメインテーブル';
+  id            SERIAL PRIMARY KEY,
+  url           VARCHAR(2048) NOT NULL,
+  title         VARCHAR(500)  DEFAULT NULL,
+  video_id      VARCHAR(100)  DEFAULT NULL,
+  progress_time INT           DEFAULT 0,
+  status        VARCHAR(20)   DEFAULT 'in_progress'
+                CHECK (status IN ('in_progress', 'completed', 'paused')),
+  ai_summary    TEXT          DEFAULT NULL,
+  created_at    TIMESTAMPTZ   DEFAULT CURRENT_TIMESTAMP,
+  updated_at    TIMESTAMPTZ   DEFAULT CURRENT_TIMESTAMP,
 
--- 初期データの挿入（テスト用）
+  UNIQUE (url)
+);
+
+-- インデックス
+CREATE INDEX IF NOT EXISTS idx_video_id        ON learning_logs (video_id);
+CREATE INDEX IF NOT EXISTS idx_created_at      ON learning_logs (created_at);
+CREATE INDEX IF NOT EXISTS idx_updated_at      ON learning_logs (updated_at);
+CREATE INDEX IF NOT EXISTS idx_status          ON learning_logs (status);
+CREATE INDEX IF NOT EXISTS idx_status_updated  ON learning_logs (status, updated_at);
+
+-- updated_at を自動更新するトリガー関数
+CREATE OR REPLACE FUNCTION update_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = CURRENT_TIMESTAMP;
+  RETURN NEW;
+END;
+
+$$ LANGUAGE plpgsql;
+
+-- トリガーの登録
+DROP TRIGGER IF EXISTS trigger_update_updated_at ON learning_logs;
+CREATE TRIGGER trigger_update_updated_at
+BEFORE UPDATE ON learning_logs
+FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+-- テストデータ（オプション）
 INSERT INTO learning_logs (url, title, progress_time, status, ai_summary) VALUES
   ('https://www.youtube.com/watch?v=dQw4w9WgXcQ', 'Sample YouTube Video', 120, 'in_progress', NULL),
-  ('https://example.com/blog/javascript-basics', 'JavaScript基礎入門', 300, 'completed', 'JavaScript の基本構文について学習')
-ON DUPLICATE KEY UPDATE updated_at = CURRENT_TIMESTAMP;
+  ('https://example.com/blog/javascript-basics', 'JavaScript基礎入門', 300, 'completed', 'JavaScriptの基本構文について学習')
+ON CONFLICT (url) DO UPDATE SET updated_at = CURRENT_TIMESTAMP;
