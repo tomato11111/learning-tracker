@@ -6,11 +6,11 @@
 // 拡張機能のインストール時
 chrome.runtime.onInstalled.addListener((details) => {
   console.log('Passive Learning Tracker installed:', details.reason);
-  
+
   if (details.reason === 'install') {
     // 初回インストール時の処理
     console.log('Welcome to Passive Learning Tracker!');
-    
+
     // デフォルト設定を保存
     chrome.storage.local.set({
       settings: {
@@ -38,22 +38,40 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
 // メッセージ受信時の処理
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   console.log('Message received:', request);
-  
+
   if (request.action === 'track') {
     // Content scriptからのトラッキングリクエスト
     handleTrackRequest(request.data)
       .then(result => sendResponse({ success: true, data: result }))
       .catch(error => sendResponse({ success: false, error: error.message }));
-    
+
     return true; // 非同期レスポンスを示す
   }
-  
+
   if (request.action === 'getStats') {
     // 統計情報のリクエスト
     getStats()
       .then(stats => sendResponse({ success: true, data: stats }))
       .catch(error => sendResponse({ success: false, error: error.message }));
-    
+
+    return true;
+  }
+
+  if (request.action === 'checkPermission') {
+    chrome.permissions.contains({
+      origins: [request.origin]
+    }, (result) => {
+      sendResponse({ granted: result });
+    });
+    return true;
+  }
+
+  if (request.action === 'requestPermission') {
+    chrome.permissions.request({
+      origins: [request.origin]
+    }, (granted) => {
+      sendResponse({ granted: granted });
+    });
     return true;
   }
 });
@@ -66,7 +84,7 @@ async function handleTrackRequest(data) {
   try {
     const settings = await chrome.storage.local.get('settings');
     const apiEndpoint = settings.settings?.apiEndpoint || 'http://localhost:3000/api/track';
-    
+
     const response = await fetch(apiEndpoint, {
       method: 'POST',
       headers: {
@@ -74,11 +92,11 @@ async function handleTrackRequest(data) {
       },
       body: JSON.stringify(data)
     });
-    
+
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}`);
     }
-    
+
     return await response.json();
   } catch (error) {
     console.error('Track request failed:', error);
@@ -92,11 +110,11 @@ async function handleTrackRequest(data) {
 async function getStats() {
   try {
     const response = await fetch('http://localhost:3000/api/stats');
-    
+
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}`);
     }
-    
+
     return await response.json();
   } catch (error) {
     console.error('Failed to fetch stats:', error);
@@ -120,16 +138,16 @@ async function cleanupOldLogs() {
   try {
     const stored = await chrome.storage.local.get('pending_learning_logs');
     const pendingLogs = stored.pending_learning_logs || [];
-    
+
     // 24時間以上古いログを削除
     const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000);
     const recentLogs = pendingLogs.filter(log => log.timestamp > oneDayAgo);
-    
+
     if (recentLogs.length < pendingLogs.length) {
       await chrome.storage.local.set({
         pending_learning_logs: recentLogs
       });
-      
+
       console.log(`Cleaned up ${pendingLogs.length - recentLogs.length} old logs`);
     }
   } catch (error) {

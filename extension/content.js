@@ -297,18 +297,24 @@
 
     try {
       const origin = new URL(currentUrl).origin + '/*';
-      const hasPermission = await chrome.permissions.contains({
-        origins: [origin]
-      });
 
-      if (!hasPermission) {
-        showPermissionBanner(origin);
-        return false;
-      }
-      return true;
+      // バックグラウンドに権限確認を依頼
+      return new Promise((resolve) => {
+        chrome.runtime.sendMessage({
+          action: 'checkPermission',
+          origin: origin
+        }, (response) => {
+          if (response && response.granted) {
+            resolve(true);
+          } else {
+            showPermissionBanner(origin);
+            resolve(false);
+          }
+        });
+      });
     } catch (error) {
       console.error('Permission check failed:', error);
-      return true; // エラー時は安全のため続行を試める
+      return true; // エラー時は安全のため続行を試みる
     }
   }
 
@@ -369,13 +375,16 @@
 
     allowBtn.onclick = async () => {
       try {
-        const granted = await chrome.permissions.request({
-          origins: [origin]
+        // バックグラウンドに権限要求を依頼
+        chrome.runtime.sendMessage({
+          action: 'requestPermission',
+          origin: origin
+        }, (response) => {
+          if (response && response.granted) {
+            banner.remove();
+            startTracking();
+          }
         });
-        if (granted) {
-          banner.remove();
-          startTracking();
-        }
       } catch (error) {
         console.error('Permission request failed:', error);
       }
@@ -383,6 +392,8 @@
 
     ignoreBtn.onclick = () => {
       banner.remove();
+      // パディングを戻す
+      document.body.style.paddingTop = '';
     };
 
     actions.appendChild(ignoreBtn);
