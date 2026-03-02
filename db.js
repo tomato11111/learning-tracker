@@ -1,52 +1,31 @@
 /**
  * Database Connection Module
- * MySQL接続を管理し、接続プールを提供します
+ * PostgreSQL (Neon) 接続を管理し、接続プールを提供します
  */
 
 require('dotenv').config();
-const mysql = require('mysql2/promise');
+const { Pool } = require('pg');
 
-// 接続設定
-const dbConfig = {
-  host: process.env.DB_HOST || 'localhost',
-  port: parseInt(process.env.DB_PORT) || 3306,
-  user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD || '',
-  database: process.env.DB_NAME || 'passive_learning_tracker',
-  waitForConnections: true,
-  connectionLimit: process.env.NODE_ENV === 'production' ? 5 : 10,
-  queueLimit: 0,
-  enableKeepAlive: true,
-  keepAliveInitialDelay: 0,
-  charset: 'utf8mb4',
-  connectTimeout: 10000, // 10秒
-  // 本番環境での追加設定
-  ...(process.env.NODE_ENV === 'production' && {
-    ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : undefined
-  })
-};
-
-// デバッグ用（パスワードは伏せる）
-console.log('📊 Database Config:', {
-  host: dbConfig.host,
-  port: dbConfig.port,
-  user: dbConfig.user,
-  database: dbConfig.database,
-  environment: process.env.NODE_ENV || 'development',
-  ssl: dbConfig.ssl ? 'enabled' : 'disabled'
+// 接続設定（NeonのDATABASE_URLを使用）
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false }, // Neon接続に必須
+  max: process.env.NODE_ENV === 'production' ? 5 : 10,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 10000,
 });
 
-// 接続プールの作成
-const pool = mysql.createPool(dbConfig);
+console.log('📊 Database: Neon PostgreSQL');
+console.log('🌍 Environment:', process.env.NODE_ENV || 'development');
 
 /**
  * データベース接続のテスト
  */
 async function testConnection() {
   try {
-    const connection = await pool.getConnection();
+    const client = await pool.connect();
     console.log('✅ Database connected successfully');
-    connection.release();
+    client.release();
     return true;
   } catch (error) {
     console.error('❌ Database connection failed:', error.message);
@@ -62,8 +41,8 @@ async function testConnection() {
  */
 async function query(sql, params = []) {
   try {
-    const [rows] = await pool.execute(sql, params);
-    return rows;
+    const result = await pool.query(sql, params);
+    return result.rows;
   } catch (error) {
     console.error('Query error:', error.message);
     throw error;
@@ -76,18 +55,17 @@ async function query(sql, params = []) {
  * @returns {Promise<any>} コールバックの戻り値
  */
 async function transaction(callback) {
-  const connection = await pool.getConnection();
-  await connection.beginTransaction();
-  
+  const client = await pool.connect();
+  await client.query('BEGIN');
   try {
-    const result = await callback(connection);
-    await connection.commit();
+    const result = await callback(client);
+    await client.query('COMMIT');
     return result;
   } catch (error) {
-    await connection.rollback();
+    await client.query('ROLLBACK');
     throw error;
   } finally {
-    connection.release();
+    client.release();
   }
 }
 
