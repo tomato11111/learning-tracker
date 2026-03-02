@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Passive Learning Tracker",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "入力ゼロの学習ログ - 自動記録＆AI要約",
   "icons": {
     "16": "icons/icon16.png",
@@ -12,13 +12,10 @@
     "storage",
     "tabs",
     "activeTab",
-    "alarms",
-    "permissions"
+    "alarms"
   ],
   "host_permissions": [
-    "http://localhost:3000/*"
-  ],
-  "optional_host_permissions": [
+    "http://localhost:3000/*",
     "https://*/*"
   ],
   "background": {
@@ -27,7 +24,8 @@
   "content_scripts": [
     {
       "matches": [
-        "<all_urls>"
+        "http://localhost:3000/*",
+        "https://*/*"
       ],
       "js": [
         "content.js"
