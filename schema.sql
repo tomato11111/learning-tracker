@@ -40,8 +40,4 @@ CREATE TRIGGER trigger_update_updated_at
 BEFORE UPDATE ON learning_logs
 FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
--- テストデータ（オプション）
-INSERT INTO learning_logs (url, title, progress_time, status, ai_summary) VALUES
-  ('https://www.youtube.com/watch?v=dQw4w9WgXcQ', 'Sample YouTube Video', 120, 'in_progress', NULL),
-  ('https://example.com/blog/javascript-basics', 'JavaScript基礎入門', 300, 'completed', 'JavaScriptの基本構文について学習')
-ON CONFLICT (url) DO UPDATE SET updated_at = CURRENT_TIMESTAMP;
+
