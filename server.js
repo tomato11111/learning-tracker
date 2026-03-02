@@ -37,7 +37,7 @@ if (process.env.NODE_ENV === 'production' && process.env.ENABLE_HTTPS_ONLY === '
 app.use(helmet(helmetConfig));
 
 // CORS設定 - Chrome拡張機能と許可されたオリジンからのアクセスを許可
-const allowedOrigins = process.env.ALLOWED_ORIGINS 
+const allowedOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(',').map(origin => origin.trim())
   : ['http://localhost:3000'];
 
@@ -45,27 +45,27 @@ console.log('🔒 Allowed Origins:', allowedOrigins);
 console.log('🌍 Environment:', process.env.NODE_ENV || 'development');
 
 app.use(cors({
-  origin: function(origin, callback) {
+  origin: function (origin, callback) {
     // Chrome拡張機能の場合（originがnullまたはchrome-extension://で始まる）
     if (!origin || origin.startsWith('chrome-extension://')) {
       return callback(null, true);
     }
-    
+
     // 許可されたオリジンリストをチェック
     const isAllowed = allowedOrigins.some(allowed => {
       // 完全一致
       if (allowed === origin) return true;
-      
+
       // ワイルドカード対応（例: https://*.yourdomain.com）
       if (allowed.includes('*')) {
         const pattern = allowed.replace(/\*/g, '.*');
         const regex = new RegExp(`^${pattern}$`);
         return regex.test(origin);
       }
-      
+
       return false;
     });
-    
+
     if (isAllowed) {
       callback(null, true);
     } else {
@@ -133,32 +133,6 @@ app.get('/api', (req, res) => {
 // API routes
 app.use('/api', apiRoutes);
 
-// 学習ログ取得エンドポイント（Dashboard用 - 互換性のため残す）
-app.get('/api/logs', async (req, res) => {
-  try {
-    const { limit = 50, offset = 0 } = req.query;
-    
-    const logs = await db.query(
-      `SELECT * FROM learning_logs 
-       ORDER BY updated_at DESC 
-       LIMIT ? OFFSET ?`,
-      [parseInt(limit), parseInt(offset)]
-    );
-    
-    res.json({
-      success: true,
-      data: logs,
-      count: logs.length
-    });
-  } catch (error) {
-    console.error('Error fetching logs:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to fetch learning logs',
-      message: error.message
-    });
-  }
-});
 
 // ===========================
 // Error Handling
@@ -176,7 +150,7 @@ app.use((req, res) => {
 // Global Error Handler
 app.use((err, req, res, next) => {
   console.error('Error:', err.stack);
-  
+
   res.status(err.status || 500).json({
     success: false,
     error: err.message || 'Internal Server Error',
@@ -195,7 +169,7 @@ async function startServer() {
     if (!isConnected) {
       console.warn('⚠️  Warning: Database connection failed, but server will start anyway');
     }
-    
+
     // サーバー起動
     app.listen(PORT, '0.0.0.0', () => {
       console.log('=================================');

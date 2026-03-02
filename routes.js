@@ -5,6 +5,7 @@
 
 const express = require('express');
 const db = require('./db');
+const { processBatch } = require('./summarizer');
 const router = express.Router();
 
 /**
@@ -126,6 +127,43 @@ router.delete('/track/:id', async (req, res) => {
   } catch (error) {
     console.error('Error deleting learning log:', error);
     res.status(500).json({ success: false, error: 'Failed to delete learning log', message: error.message });
+  }
+});
+
+/**
+ * GET /api/logs
+ * 学習ログを取得（Dashboard 互換 / ページネーションなし）
+ */
+router.get('/logs', async (req, res) => {
+  try {
+    const { limit = 50, offset = 0 } = req.query;
+
+    const rows = await db.query(
+      'SELECT * FROM learning_logs ORDER BY updated_at DESC LIMIT $1 OFFSET $2',
+      [parseInt(limit), parseInt(offset)]
+    );
+
+    res.json({ success: true, data: rows, count: rows.length });
+
+  } catch (error) {
+    console.error('Error fetching logs:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch learning logs', message: error.message });
+  }
+});
+
+/**
+ * GET /api/summarize
+ * Vercel Cron Job から定期的に呼ばれる AI 要約トリガー
+ * （手動実行も可）
+ */
+router.get('/summarize', async (req, res) => {
+  try {
+    console.log('🤖 Summarizer triggered via API');
+    const result = await processBatch();
+    res.json({ success: true, ...result });
+  } catch (error) {
+    console.error('Summarizer error:', error);
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 

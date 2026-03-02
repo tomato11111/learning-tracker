@@ -4,8 +4,6 @@
 
 **入力ゼロの学習ログ** - 自動記録＆AI要約システム
 
-> 📌 **v2.1 更新**: 長いURL（255文字超）の衝突バグを修正しました。詳細は [BUGFIX_v2.1.md](./BUGFIX_v2.1.md) をご覧ください。
-
 ---
 
 ## 概要
@@ -30,8 +28,9 @@ graph TB
         DASH["ダッシュボード<br/>(ブラウザ)"]
     end
 
-    subgraph Render["☁️ Render.com (Web Service)"]
+    subgraph Vercel["☁️ Vercel (Serverless)"]
         SERVER["Node.js + Express<br/>サーバー"]
+        CRON["Vercel Cron<br/>(5分ごと)"]
         SUMM["AI要約エンジン<br/>(summarizer.js)"]
     end
 
@@ -46,9 +45,9 @@ graph TB
     EXT -->|"POST /api/track<br/>学習データ送信"| SERVER
     DASH -->|"GET /api/logs<br/>GET /api/stats"| SERVER
     SERVER -->|"SQL クエリ"| DB
+    CRON -->|"GET /api/summarize"| SUMM
     SUMM -->|"未要約データ取得・更新"| DB
     SUMM -->|"テキスト要約リクエスト"| OPENROUTER
-    SERVER -.->|"定期実行"| SUMM
 ```
 
 ---
@@ -59,18 +58,18 @@ graph TB
 |----------|------|
 | **Backend** | Node.js + Express |
 | **Database** | PostgreSQL（[Neon](https://neon.tech)） |
-| **Hosting** | [Render.com](https://render.com) |
+| **Hosting** | [Vercel](https://vercel.com)（無料） |
 | **Frontend** | Chrome Extension (Manifest V3) |
 | **AI** | [OpenRouter API](https://openrouter.ai)（無料枠対応） |
 
 ---
 
-## 本番環境へのデプロイ
+## 本番環境へのデプロイ（Vercel）
 
 ### 前提条件
 
-- [Render.com](https://render.com) アカウント
-- [Neon](https://neon.tech) アカウント（PostgreSQL）
+- [Vercel](https://vercel.com) アカウント（無料）
+- [Neon](https://neon.tech) アカウント（PostgreSQL・無料）
 - [OpenRouter](https://openrouter.ai) APIキー（無料で取得可能）
 
 ### 1. Neonでデータベースをセットアップ
@@ -79,29 +78,42 @@ graph TB
 2. **SQL Editor** を開き、`schema.sql` の内容を実行してテーブルを作成
 3. **Connection Details** から接続文字列（Connection String）をコピー
 
-### 2. Renderにデプロイ
+### 2. Vercelにデプロイ
 
-1. Render ダッシュボードで **New Web Service** を作成
-2. GitHubリポジトリを連携
-3. 以下の設定を入力：
+```bash
+# Vercel CLIをインストール
+npm i -g vercel
+
+# デプロイ
+vercel
+```
+
+または GitHub リポジトリを [Vercel ダッシュボード](https://vercel.com/dashboard) から連携してください。
 
 | 項目 | 値 |
-|------|----|
-| **Runtime** | `Node` |
-| **Build Command** | `npm install` |
-| **Start Command** | `npm start` |
-| **Region** | `Singapore` |
+|------|-----|
+| **Framework Preset** | `Other` |
+| **Root Directory** | `./` |
+| **Install Command** | `npm install` |
+| **Output Directory** | （空欄） |
 
-4. **Environment Variables** に以下を設定：
+### 3. 環境変数の設定
+
+Vercel ダッシュボードの **Settings > Environment Variables** に以下を設定：
 
 | Key | Value |
 |-----|-------|
 | `NODE_ENV` | `production` |
 | `DATABASE_URL` | NeonのConnection String |
 | `OPENROUTER_API_KEY` | OpenRouterのAPIキー |
-| `ALLOWED_ORIGINS` | `https://your-app.onrender.com` |
-| `ENABLE_HTTPS_ONLY` | `true` |
-| `PRODUCTION_URL` | `https://your-app.onrender.com` |
+| `ALLOWED_ORIGINS` | `https://your-app.vercel.app` |
+| `PRODUCTION_URL` | `https://your-app.vercel.app` |
+
+### 4. AI要約（Vercel Cron）
+
+`vercel.json` に設定済みのため、**デプロイ後に自動的に5分ごと**に `/api/summarize` が実行されます。
+
+> ⚠️ Vercel Cron は **Hobby プラン**でも無料で利用可能です。
 
 ---
 
@@ -111,7 +123,7 @@ graph TB
 - Node.js 16.0.0 以上
 - PostgreSQL（またはNeon接続）
 - Chrome ブラウザ
-- [OpenRouter](https://openrouter.ai) APIキー（無料で取得可能）
+- [OpenRouter](https://openrouter.ai) APIキー
 
 ### 1. 依存関係のインストール
 
@@ -121,37 +133,32 @@ npm install
 
 ### 2. 環境変数の設定
 
-`.env.example` をコピーして `.env` を作成し、必要な情報を入力してください。
+`.env.example` をコピーして `.env` を作成：
 
 ```bash
 cp .env.example .env
 ```
 
-`.env` ファイルを編集：
+`.env` を編集：
 
 ```env
-# Database Configuration (Neon)
 DATABASE_URL=postgresql://user:password@ep-xxx.neon.tech/neondb?sslmode=require
-
-# AI API Configuration (OpenRouter)
 OPENROUTER_API_KEY=your_openrouter_api_key_here
-
-# Server Configuration
 PRODUCTION_URL=http://localhost:3000
 ```
 
 ### 3. データベースのセットアップ
 
-Neonの **SQL Editor** で `schema.sql` の内容を実行してテーブルを作成してください。
+Neonの **SQL Editor** で `schema.sql` の内容を実行してください。
 
 ### 4. サーバーの起動
 
 ```bash
-# 本番環境
-npm start
-
 # 開発環境（自動リロード）
 npm run dev
+
+# 本番環境
+npm start
 ```
 
 サーバーは `http://localhost:3000` で起動します。
@@ -163,7 +170,7 @@ npm run dev
 3. 「パッケージ化されていない拡張機能を読み込む」をクリック
 4. プロジェクトの `extension` フォルダを選択
 
-### 6. AI要約の起動（オプション）
+### 6. AI要約の起動（ローカル）
 
 ```bash
 # 一度だけ実行
@@ -172,6 +179,8 @@ npm run summarize
 # 5分ごとに自動実行
 npm run summarize:cron
 ```
+
+> 本番環境（Vercel）では Cron が自動実行されるため不要です。
 
 ---
 
@@ -195,27 +204,36 @@ Content-Type: application/json
   "status": "in_progress"
 }
 ```
-学習データを記録（Upsert処理）
 
 ### 学習ログの取得
 ```
 GET /api/logs?limit=50&offset=0
 ```
-学習ログを取得（最新順）
 
 ### 統計情報の取得
 ```
 GET /api/stats
 ```
-総学習時間、ページ数、YouTube動画数、要約済みログ数を取得
 
-### 特定ログの取得
+### AI要約のトリガー（手動 or Vercel Cron）
 ```
-GET /api/track/:id
+GET /api/summarize
 ```
 
-### ログの削除
+### ページネーション付きログ
 ```
+GET /api/logs/paginated?page=1&limit=20&status=all&search=keyword
+```
+
+### 分析データ
+```
+GET /api/analytics/heatmap?days=365
+GET /api/analytics/trends?period=weekly&limit=12
+```
+
+### 特定ログの取得・削除
+```
+GET    /api/track/:id
 DELETE /api/track/:id
 ```
 
@@ -230,6 +248,7 @@ passive-learning-tracker/
 ├── db.js                  # データベース接続管理（PostgreSQL）
 ├── summarizer.js          # AI要約エンジン（OpenRouter）
 ├── schema.sql             # PostgreSQLスキーマ
+├── vercel.json            # Vercel設定（ルーティング + Cron）
 ├── package.json           # 依存関係
 ├── .env                   # 環境変数（要作成）
 ├── .env.example           # 環境変数テンプレート
@@ -237,8 +256,11 @@ passive-learning-tracker/
 │   ├── manifest.json      # 拡張機能マニフェスト
 │   ├── content.js         # コンテンツスクリプト
 │   ├── background.js      # バックグラウンドワーカー
+│   ├── config.js          # API設定
 │   ├── popup.html         # ポップアップUI
 │   ├── popup.js           # ポップアップロジック
+│   ├── settings.html      # 設定画面
+│   ├── settings.js        # 設定ロジック
 │   └── icons/             # アイコン画像
 └── public/                # ダッシュボード
     ├── index.html         # メインページ
@@ -252,26 +274,17 @@ passive-learning-tracker/
 
 ### 基本的な流れ
 
-1. **サーバー起動**: `npm start` でバックエンドを起動
-2. **拡張機能インストール**: Chrome拡張機能を読み込む
+1. **デプロイ**: Vercelにデプロイしてサーバーを起動
+2. **拡張機能インストール**: Chrome拡張機能を読み込む（`extension/config.js` のURLをVercelのURLに変更）
 3. **自動記録**: Webページを閲覧すると自動的に記録開始
-4. **ダッシュボード確認**: `http://localhost:3000` で学習履歴を確認
-5. **AI要約生成**: `npm run summarize` で要約を生成
+4. **ダッシュボード確認**: Vercelの URL で学習履歴を確認
+5. **AI要約**: 5分ごとに自動生成（`/api/summarize` 手動実行も可）
 
-### 対応サイト
+### 拡張機能のURL設定
 
-- ✅ YouTube（動画の再生位置を記録）
-- ✅ Udemy, Coursera などの学習プラットフォーム
-- ✅ 技術ブログ、ドキュメントサイト
-- ✅ すべてのWebサイト
+`extension/config.js` の `PRODUCTION_URL` をVercelのデプロイ先URLに変更してください。
 
-### ダッシュボード機能
-
-- 📊 学習統計の表示（総時間、ページ数など）
-- 📅 日付ごとにグループ化された学習履歴
-- 🔍 タイトル・URLでリアルタイム検索
-- 🧠 AI生成の要約表示（OpenRouter）
-- 🔄 自動更新（5分ごと）
+または Chrome拡張機能の設定画面（`settings.html`）から変更できます。
 
 ---
 
@@ -287,14 +300,19 @@ passive-learning-tracker/
 
 1. `chrome://extensions/` で拡張機能が有効か確認
 2. コンソールでエラーを確認
-3. サーバーが正しく起動しているか確認
+3. サーバーが正しく起動しているか確認（設定のAPIエンドポイントURL）
 
 ### AI要約が生成されない
 
 1. `OPENROUTER_API_KEY` が正しく設定されているか確認
-2. `npm run summarize` を手動実行してエラーを確認
+2. `/api/summarize` を手動でアクセスしてエラーを確認
 3. [OpenRouter ダッシュボード](https://openrouter.ai/activity) でAPIの使用状況を確認
 4. 無料枠の上限（20リクエスト/分・200リクエスト/日）に達していないか確認
+
+### Vercel Cron が動作しない
+
+1. Vercel ダッシュボードの **Settings > Cron Jobs** でスケジュールを確認
+2. 関数のタイムアウト（10秒）を超えていないか確認（バッチサイズを小さくする）
 
 ---
 
@@ -305,6 +323,7 @@ passive-learning-tracker/
 - [x] Step 3: ブラウザ拡張機能の作成
 - [x] Step 4: AI自動要約の実装
 - [x] Step 5: ダッシュボード画面の作成
+- [x] Step 6: Vercel対応（Cron・サーバーレス）
 
 ## 今後の機能追加予定
 

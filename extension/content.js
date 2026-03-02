@@ -3,30 +3,30 @@
  * ページの学習データを監視し、定期的にサーバーへ送信
  */
 
-(function() {
+(function () {
   'use strict';
 
   // 設定を動的に読み込む
   let CONFIG = null;
-  
+
   // 設定の初期化
   async function initConfig() {
     try {
       // Chrome Storageから設定を取得
       const stored = await chrome.storage.sync.get(['apiEndpoint', 'environment']);
-      
+
       const isDevelopment = !stored.environment || stored.environment === 'development';
-      
+
       CONFIG = {
-        API_ENDPOINT: stored.apiEndpoint || (isDevelopment 
-          ? 'http://localhost:3000/api/track' 
+        API_ENDPOINT: stored.apiEndpoint || (isDevelopment
+          ? 'http://localhost:3000/api/track'
           : 'https://your-domain.com/api/track'),
         TRACKING_INTERVAL: 60000, // 1分ごとに送信
         STORAGE_KEY: 'pending_learning_logs',
         MIN_TRACKING_TIME: 5, // 最低5秒以上の滞在で記録開始
         ENVIRONMENT: isDevelopment ? 'development' : 'production'
       };
-      
+
       console.log('🔧 Config loaded:', CONFIG.ENVIRONMENT, CONFIG.API_ENDPOINT);
     } catch (error) {
       // Fallback to default (development)
@@ -60,18 +60,18 @@
       const video = document.querySelector('video');
       if (video && !video.paused) {
         const currentPosition = Math.floor(video.currentTime);
-        
+
         // 前回の位置からの差分を計算
         // シーク（巻き戻し/早送り）を検出した場合は、実際の視聴時間を計算
         const delta = Math.abs(currentPosition - lastYouTubePosition);
-        
+
         // 大きなジャンプ（30秒以上）の場合は、シークと判断してカウントしない
         if (delta > 30) {
           console.log(`📹 YouTube seek detected: ${lastYouTubePosition}s → ${currentPosition}s`);
           lastYouTubePosition = currentPosition;
           return 0;
         }
-        
+
         lastYouTubePosition = currentPosition;
         return delta;
       }
@@ -102,7 +102,7 @@
     if (isYouTube) {
       return getYouTubeProgressDelta();
     }
-    
+
     // それ以外は滞在時間の差分
     return getPageProgressDelta();
   }
@@ -144,16 +144,16 @@
     try {
       const stored = await chrome.storage.local.get(CONFIG.STORAGE_KEY);
       const pendingLogs = stored[CONFIG.STORAGE_KEY] || [];
-      
+
       pendingLogs.push({
         ...data,
         timestamp: Date.now()
       });
-      
+
       await chrome.storage.local.set({
         [CONFIG.STORAGE_KEY]: pendingLogs
       });
-      
+
       console.log('💾 Data saved to local storage (retry queue)');
     } catch (error) {
       console.error('Failed to save to local storage:', error);
@@ -167,33 +167,33 @@
     try {
       const stored = await chrome.storage.local.get(CONFIG.STORAGE_KEY);
       const pendingLogs = stored[CONFIG.STORAGE_KEY] || [];
-      
+
       if (pendingLogs.length === 0) return;
-      
+
       console.log(`📤 Retrying ${pendingLogs.length} pending logs...`);
-      
+
       const successfulLogs = [];
-      
+
       for (const log of pendingLogs) {
         const success = await sendToServer(log);
         if (success) {
           successfulLogs.push(log);
         }
       }
-      
+
       // 成功したログを削除
       if (successfulLogs.length > 0) {
         const remainingLogs = pendingLogs.filter(
           log => !successfulLogs.includes(log)
         );
-        
+
         await chrome.storage.local.set({
           [CONFIG.STORAGE_KEY]: remainingLogs
         });
-        
+
         console.log(`✅ ${successfulLogs.length} pending logs sent successfully`);
       }
-      
+
     } catch (error) {
       console.error('Failed to retry pending logs:', error);
     }
@@ -203,31 +203,31 @@
    * 学習データを記録
    */
   async function trackLearning() {
-    const progress = getCurrentProgress();
-    
+    const progress = getCurrentProgressDelta();
+
     // 最低追跡時間に達していない場合はスキップ
     if (progress < CONFIG.MIN_TRACKING_TIME) {
       console.log('⏭️  Skipping tracking (too short)');
       return;
     }
-    
+
     const data = {
       url: currentUrl,
       title: pageTitle || document.title,
       progress_time: progress,
       status: 'in_progress'
     };
-    
+
     console.log('📊 Tracking learning:', data);
-    
+
     // サーバーへ送信
     const success = await sendToServer(data);
-    
+
     // 失敗した場合はローカルストレージに保存
     if (!success) {
       await saveToLocalStorage(data);
     }
-    
+
     // タイマーをリセット（累積ではなく差分を記録するため）
     startTime = Date.now();
   }
@@ -237,20 +237,20 @@
    */
   function startTracking() {
     if (isTracking) return;
-    
+
     console.log('▶️  Learning tracker started');
     isTracking = true;
     startTime = Date.now();
-    
+
     // 初回はページロード時にリトライ
     retryPendingLogs();
-    
+
     // 定期的に記録
     trackingInterval = setInterval(() => {
       trackLearning();
       retryPendingLogs(); // リトライも定期実行
     }, CONFIG.TRACKING_INTERVAL);
-    
+
     // ページ離脱時に最後の記録を送信
     window.addEventListener('beforeunload', () => {
       trackLearning();
@@ -262,15 +262,15 @@
    */
   function stopTracking() {
     if (!isTracking) return;
-    
+
     console.log('⏸️  Learning tracker stopped');
     isTracking = false;
-    
+
     if (trackingInterval) {
       clearInterval(trackingInterval);
       trackingInterval = null;
     }
-    
+
     // 最後の記録を送信
     trackLearning();
   }
@@ -292,19 +292,19 @@
   async function init() {
     // 設定を初期化
     await initConfig();
-    
+
     console.log('🚀 Passive Learning Tracker initialized');
     console.log('📄 Page:', pageTitle);
     console.log('🔗 URL:', currentUrl);
-    
+
     // ページが表示されている場合のみトラッキング開始
     if (!document.hidden) {
       startTracking();
     }
-    
+
     // 可視性の変更を監視
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    
+
     // タイトルの変更を監視（SPAなど）
     const observer = new MutationObserver(() => {
       if (document.title !== pageTitle) {
@@ -312,7 +312,7 @@
         console.log('📄 Page title changed:', pageTitle);
       }
     });
-    
+
     observer.observe(document.querySelector('title') || document.head, {
       childList: true,
       characterData: true,
