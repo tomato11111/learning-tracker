@@ -18,13 +18,12 @@ const CONFIG = {
     TRACKING_INTERVAL: 60000, // 1分
     MIN_TRACKING_TIME: 5, // 5秒
   },
-  
+
   // 本番環境の設定
   production: {
-    // TODO: 本番環境のドメインに変更してください
-    API_ENDPOINT: 'https://your-domain.com/api/track',
-    STATS_ENDPOINT: 'https://your-domain.com/api/stats',
-    DASHBOARD_URL: 'https://your-domain.com',
+    API_ENDPOINT: 'https://learning-tracker-9mlpt84mv-tomato11111s-projects.vercel.app/api/track',
+    STATS_ENDPOINT: 'https://learning-tracker-9mlpt84mv-tomato11111s-projects.vercel.app/api/stats',
+    DASHBOARD_URL: 'https://learning-tracker-9mlpt84mv-tomato11111s-projects.vercel.app',
     TRACKING_INTERVAL: 60000, // 1分
     MIN_TRACKING_TIME: 5, // 5秒
   }
@@ -34,7 +33,7 @@ const CONFIG = {
 const getConfig = () => {
   // Chrome拡張の設定を動的に読み込む（将来的な拡張）
   // chrome.storage.sync から設定を読み込むことも可能
-  
+
   const env = isProduction() ? 'production' : 'development';
   return {
     ...CONFIG[env],
