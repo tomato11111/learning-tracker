@@ -275,15 +275,23 @@ passive-learning-tracker/
 ### 基本的な流れ
 
 1. **デプロイ**: Vercelにデプロイしてサーバーを起動
-2. **拡張機能インストール**: Chrome拡張機能を読み込む（`extension/config.js` のURLをVercelのURLに変更）
+2. **拡張機能インストール**: Chrome拡張機能を読み込む（詳しくは下記「拡張機能のインストール」参照）
 3. **自動記録**: Webページを閲覧すると自動的に記録開始
 4. **ダッシュボード確認**: Vercelの URL で学習履歴を確認
 5. **AI要約**: 5分ごとに自動生成（`/api/summarize` 手動実行も可）
 
+### 拡張機能のインストール（Chrome）
+
+1. Chromeを開き、URLバーに `chrome://extensions/` と入力してアクセス
+2. 右上の **「デベロッパーモード」** をONにする
+3. **「パッケージ化されていない拡張機能を読み込む」** をクリック
+4. このプロジェクトの `extension` フォルダを選択
+
 ### 拡張機能のURL設定
 
-`extension/config.js` の `PRODUCTION_URL` をVercelのデプロイ先URLに変更してください。
+拡張機能を読み込んだ後、本番環境のサーバーへデータを送るように設定します。
 
+`extension/config.js` の `CURRENT_CONFIG.production` 内のURLをVercelのデプロイ先URLに変更してください。
 または Chrome拡張機能の設定画面（`settings.html`）から変更できます。
 
 ---
