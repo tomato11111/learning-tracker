@@ -9,33 +9,41 @@
   // 設定を動的に読み込む
   let CONFIG = null;
 
+  const VERCEL_URL = 'https://learning-tracker-9mlpt84mv-tomato11111s-projects.vercel.app';
+
+  /**
+   * 拡張機能のコンテキストがまだ有効か確認
+   * 再読み込み後に古いコンテンツスクリプトが動作し渋けることを防ぐ
+   */
+  function isExtensionContextValid() {
+    try {
+      return !!(chrome.runtime && chrome.runtime.id);
+    } catch (e) {
+      return false;
+    }
+  }
+
   // 設定の初期化
   async function initConfig() {
     try {
       // Chrome Storageから設定を取得
-      const stored = await chrome.storage.sync.get(['apiEndpoint', 'environment']);
-
-      const isDevelopment = !stored.environment || stored.environment === 'development';
+      const stored = await chrome.storage.sync.get(['apiEndpoint']);
 
       CONFIG = {
-        API_ENDPOINT: stored.apiEndpoint || (isDevelopment
-          ? 'http://localhost:3000/api/track'
-          : 'https://your-domain.com/api/track'),
+        API_ENDPOINT: stored.apiEndpoint || `${VERCEL_URL}/api/track`,
         TRACKING_INTERVAL: 60000, // 1分ごとに送信
         STORAGE_KEY: 'pending_learning_logs',
         MIN_TRACKING_TIME: 5, // 最低5秒以上の滞在で記録開始
-        ENVIRONMENT: isDevelopment ? 'development' : 'production'
       };
 
-      console.log('🔧 Config loaded:', CONFIG.ENVIRONMENT, CONFIG.API_ENDPOINT);
+      console.log('🔧 Config loaded:', CONFIG.API_ENDPOINT);
     } catch (error) {
-      // Fallback to default (development)
+      // Fallback to Vercel URL
       CONFIG = {
-        API_ENDPOINT: 'http://localhost:3000/api/track',
+        API_ENDPOINT: `${VERCEL_URL}/api/track`,
         TRACKING_INTERVAL: 60000,
         STORAGE_KEY: 'pending_learning_logs',
         MIN_TRACKING_TIME: 5,
-        ENVIRONMENT: 'development'
       };
       console.warn('⚠️  Using default config:', error);
     }
@@ -141,6 +149,7 @@
    * @param {Object} data - 保存するデータ
    */
   async function saveToLocalStorage(data) {
+    if (!isExtensionContextValid()) return;
     try {
       const stored = await chrome.storage.local.get(CONFIG.STORAGE_KEY);
       const pendingLogs = stored[CONFIG.STORAGE_KEY] || [];
@@ -164,6 +173,11 @@
    * 保留中のログをリトライ送信
    */
   async function retryPendingLogs() {
+    if (!isExtensionContextValid()) {
+      console.warn('⚠️ Extension context invalid. Stopping retry.');
+      stopTracking();
+      return;
+    }
     try {
       const stored = await chrome.storage.local.get(CONFIG.STORAGE_KEY);
       const pendingLogs = stored[CONFIG.STORAGE_KEY] || [];
@@ -193,7 +207,6 @@
 
         console.log(`✅ ${successfulLogs.length} pending logs sent successfully`);
       }
-
     } catch (error) {
       console.error('Failed to retry pending logs:', error);
     }

@@ -2,14 +2,15 @@
  * Popup UI Script for Passive Learning Tracker
  */
 
+const VERCEL_URL = 'https://learning-tracker-9mlpt84mv-tomato11111s-projects.vercel.app';
+
 // API設定を取得
 async function getApiConfig() {
   try {
-    const stored = await chrome.storage.sync.get(['environment', 'apiEndpoint']);
-    const env = stored.environment || 'development';
-    const baseUrl = env === 'development'
-      ? 'http://localhost:3000'
-      : stored.apiEndpoint?.replace('/api/track', '') || 'https://your-domain.com';
+    const stored = await chrome.storage.sync.get(['apiEndpoint']);
+    const baseUrl = stored.apiEndpoint
+      ? stored.apiEndpoint.replace('/api/track', '')
+      : VERCEL_URL;
 
     return {
       statsEndpoint: `${baseUrl}/api/stats`,
@@ -18,8 +19,8 @@ async function getApiConfig() {
   } catch (error) {
     console.error('Failed to get config:', error);
     return {
-      statsEndpoint: 'http://localhost:3000/api/stats',
-      dashboardUrl: 'http://localhost:3000'
+      statsEndpoint: `${VERCEL_URL}/api/stats`,
+      dashboardUrl: VERCEL_URL
     };
   }
 }
@@ -52,67 +53,95 @@ function displayStats(stats, dashboardUrl) {
   const totalMinutes = Math.floor(stats.total_learning_time_seconds / 60);
   const totalHours = Math.floor(totalMinutes / 60);
   const remainingMinutes = totalMinutes % 60;
-
   const timeDisplay = totalHours > 0
     ? `${totalHours}時間 ${remainingMinutes}分`
     : `${totalMinutes}分`;
 
-  const html = `
-    <div class="stats">
-      <div class="stat-item">
-        <span class="stat-label">📊 総学習時間</span>
-        <span class="stat-value">${timeDisplay}</span>
-      </div>
-      <div class="stat-item">
-        <span class="stat-label">📄 学習ページ数</span>
-        <span class="stat-value">${stats.total_pages}</span>
-      </div>
-      <div class="stat-item">
-        <span class="stat-label">🎥 YouTube動画</span>
-        <span class="stat-value">${stats.youtube_videos}</span>
-      </div>
-      <div class="stat-item">
-        <span class="stat-label">🧠 AI要約済み</span>
-        <span class="stat-value">${stats.summarized_logs}</span>
-      </div>
-    </div>
-    <button class="button" id="open-dashboard">
-      📊 ダッシュボードを開く
-    </button>
-  `;
+  const content = document.getElementById('content');
+  content.textContent = '';
 
-  document.getElementById('content').innerHTML = html;
+  // stats ボックス
+  const statsDiv = document.createElement('div');
+  statsDiv.className = 'stats';
 
-  // ダッシュボードボタンのイベント
-  document.getElementById('open-dashboard').addEventListener('click', () => {
+  const items = [
+    { label: '📊 総学習時間', value: timeDisplay },
+    { label: '📄 学習ページ数', value: stats.total_pages },
+    { label: '🎥 YouTube動画', value: stats.youtube_videos },
+    { label: '🧠 AI要約済み', value: stats.summarized_logs },
+  ];
+
+  items.forEach(({ label, value }) => {
+    const item = document.createElement('div');
+    item.className = 'stat-item';
+    const labelSpan = document.createElement('span');
+    labelSpan.className = 'stat-label';
+    labelSpan.textContent = label;
+    const valueSpan = document.createElement('span');
+    valueSpan.className = 'stat-value';
+    valueSpan.textContent = value;
+    item.appendChild(labelSpan);
+    item.appendChild(valueSpan);
+    statsDiv.appendChild(item);
+  });
+
+  // ダッシュボードボタン
+  const btn = document.createElement('button');
+  btn.className = 'button';
+  btn.id = 'open-dashboard';
+  btn.textContent = '📊 ダッシュボードを開く';
+  btn.addEventListener('click', () => {
     chrome.tabs.create({ url: dashboardUrl });
   });
+
+  content.appendChild(statsDiv);
+  content.appendChild(btn);
 }
 
 // エラー表示
 function displayError() {
-  const html = `
-    <div class="stats">
-      <div style="text-align: center; padding: 20px;">
-        <div style="font-size: 48px; margin-bottom: 12px;">⚠️</div>
-        <div>サーバーに接続できません</div>
-        <div style="font-size: 12px; opacity: 0.8; margin-top: 8px;">
-          サーバーが起動しているか確認してください
-        </div>
-      </div>
-    </div>
-    <button class="button" id="retry-button">
-      🔄 再試行
-    </button>
-  `;
+  const content = document.getElementById('content');
+  content.textContent = '';
 
-  document.getElementById('content').innerHTML = html;
+  // エラーボックス
+  const statsDiv = document.createElement('div');
+  statsDiv.className = 'stats';
 
-  // 再試行ボタンのイベント
-  document.getElementById('retry-button').addEventListener('click', () => {
-    document.getElementById('content').innerHTML = '<div class="loading">読み込み中...</div>';
+  const inner = document.createElement('div');
+  inner.style.cssText = 'text-align: center; padding: 20px;';
+
+  const icon = document.createElement('div');
+  icon.style.cssText = 'font-size: 48px; margin-bottom: 12px;';
+  icon.textContent = '⚠️';
+
+  const msg = document.createElement('div');
+  msg.textContent = 'サーバーに接続できません';
+
+  const sub = document.createElement('div');
+  sub.style.cssText = 'font-size: 12px; opacity: 0.8; margin-top: 8px;';
+  sub.textContent = 'サーバーが起動しているか確認してください';
+
+  inner.appendChild(icon);
+  inner.appendChild(msg);
+  inner.appendChild(sub);
+  statsDiv.appendChild(inner);
+
+  // 再試行ボタン
+  const btn = document.createElement('button');
+  btn.className = 'button';
+  btn.id = 'retry-button';
+  btn.textContent = '🔄 再試行';
+  btn.addEventListener('click', () => {
+    const loading = document.createElement('div');
+    loading.className = 'loading';
+    loading.textContent = '読み込み中...';
+    content.textContent = '';
+    content.appendChild(loading);
     loadStats();
   });
+
+  content.appendChild(statsDiv);
+  content.appendChild(btn);
 }
 
 // ステータスを更新

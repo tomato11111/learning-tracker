@@ -1,0 +1,54 @@
+# Passive Learning Tracker — プロジェクト固有ルール
+
+作業開始前に `lessons.md` と `.agent/rules.md` を必ず読み込んでから作業を開始すること。
+
+---
+
+## プロジェクト概要
+
+- **Chrome Extension (Manifest V3)** + **Node.js/Express on Vercel** + **Neon PostgreSQL** の構成
+- Chrome拡張がウェブページの閲覧時間を自動記録し、Vercel バックエンドに送信する
+- AI（OpenRouter API）が学習内容を自動要約する
+
+---
+
+## 最重要制約
+
+### Chrome 拡張機能（Manifest V3）
+
+1. **`host_permissions` に通信先 URL を必ず追加する**
+   - `optional_host_permissions` だけでは Service Worker からの fetch がブロックされる
+
+2. **本番 URL は全ファイルで `VERCEL_URL` 定数にまとめ、デフォルトを本番にする**
+   - 関連 5 ファイル: `manifest.json`, `background.js`, `content.js`, `popup.js`, `settings.js`
+
+3. **Extension page では `innerHTML` への動的 HTML 代入は CSP 違反**
+   - `createElement` + `textContent` + `appendChild` を使うこと
+
+4. **拡張再読み込み後のタブは F5 リロードが必要**（Extension context invalidated 対策）
+
+5. **`chrome.storage.sync` と `chrome.storage.local` は別物**
+   - background.js（local）と content.js（sync）で混在しないこと
+
+### バックエンド（PostgreSQL / Neon）
+
+- プレースホルダーは `$1`, `$2`（`?` は MySQL 構文で NG）
+- 接続文字列に `?sslmode=require` 必須
+- エンドポイントは `routes.js` のみに定義する
+
+### Vercel
+
+- サーバーレス関数のタイムアウトは **10秒**
+- 環境変数は Vercel ダッシュボードで管理（`.env` はローカル専用）
+
+---
+
+## ファイル構成の主要ルール
+
+| ファイル | 役割 |
+|----------|------|
+| `server.js` | ミドルウェア・起動処理のみ |
+| `routes.js` | 全 API エンドポイント定義 |
+| `extension/config.js` | 拡張機能の設定（VERCEL_URL 定数） |
+| `lessons.md` | 過去のミスと教訓（必読） |
+| `.agent/rules.md` | 詳細なプロジェクトルール（必読） |

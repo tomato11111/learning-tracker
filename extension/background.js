@@ -3,6 +3,8 @@
  * バックグラウンドでの処理とメッセージングを管理
  */
 
+const VERCEL_URL = 'https://learning-tracker-9mlpt84mv-tomato11111s-projects.vercel.app';
+
 // 拡張機能のインストール時
 chrome.runtime.onInstalled.addListener((details) => {
   console.log('Passive Learning Tracker installed:', details.reason);
@@ -15,7 +17,7 @@ chrome.runtime.onInstalled.addListener((details) => {
     chrome.storage.local.set({
       settings: {
         trackingEnabled: true,
-        apiEndpoint: 'http://localhost:3000/api/track',
+        apiEndpoint: `${VERCEL_URL}/api/track`,
         trackingInterval: 60000
       }
     });
@@ -83,7 +85,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 async function handleTrackRequest(data) {
   try {
     const settings = await chrome.storage.local.get('settings');
-    const apiEndpoint = settings.settings?.apiEndpoint || 'http://localhost:3000/api/track';
+    const apiEndpoint = settings.settings?.apiEndpoint || `${VERCEL_URL}/api/track`;
 
     const response = await fetch(apiEndpoint, {
       method: 'POST',
@@ -109,7 +111,7 @@ async function handleTrackRequest(data) {
  */
 async function getStats() {
   try {
-    const response = await fetch('http://localhost:3000/api/stats');
+    const response = await fetch(`${VERCEL_URL}/api/stats`);
 
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}`);

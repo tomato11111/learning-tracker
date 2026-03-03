@@ -30,11 +30,9 @@ const CONFIG = {
 };
 
 // 現在の環境に応じた設定を取得
+// Chrome拡張はブラウザ上で動作するため、常にproduction設定を使用する
 const getConfig = () => {
-  // Chrome拡張の設定を動的に読み込む（将来的な拡張）
-  // chrome.storage.sync から設定を読み込むことも可能
-
-  const env = isProduction() ? 'production' : 'development';
+  const env = 'production';
   return {
     ...CONFIG[env],
     STORAGE_KEY: 'pending_learning_logs',

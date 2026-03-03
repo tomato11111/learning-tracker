@@ -2,13 +2,15 @@
  * Settings Page Script
  */
 
+const VERCEL_URL = 'https://learning-tracker-9mlpt84mv-tomato11111s-projects.vercel.app';
+
 // 環境別のデフォルト設定
 const ENV_DEFAULTS = {
   development: {
     apiEndpoint: 'http://localhost:3000/api/track'
   },
   production: {
-    apiEndpoint: 'https://your-domain.com/api/track'
+    apiEndpoint: `${VERCEL_URL}/api/track`
   }
 };
 
@@ -24,13 +26,13 @@ const currentApiSpan = document.getElementById('currentApi');
 async function loadSettings() {
   try {
     const stored = await chrome.storage.sync.get(['environment', 'apiEndpoint']);
-    
-    const env = stored.environment || 'development';
-    const api = stored.apiEndpoint || ENV_DEFAULTS.development.apiEndpoint;
-    
+
+    const env = stored.environment || 'production';
+    const api = stored.apiEndpoint || ENV_DEFAULTS.production.apiEndpoint;
+
     environmentSelect.value = env;
     apiEndpointInput.value = api;
-    
+
     updateCurrentSettings(env, api);
   } catch (error) {
     console.error('Failed to load settings:', error);
@@ -54,27 +56,27 @@ saveBtn.addEventListener('click', async () => {
   try {
     const environment = environmentSelect.value;
     const apiEndpoint = apiEndpointInput.value.trim();
-    
+
     // バリデーション
     if (!apiEndpoint) {
       showStatus('error', 'APIエンドポイントを入力してください');
       return;
     }
-    
+
     if (!apiEndpoint.startsWith('http://') && !apiEndpoint.startsWith('https://')) {
       showStatus('error', 'APIエンドポイントは http:// または https:// で始まる必要があります');
       return;
     }
-    
+
     // 保存
     await chrome.storage.sync.set({
       environment,
       apiEndpoint
     });
-    
+
     updateCurrentSettings(environment, apiEndpoint);
     showStatus('success', '✅ 設定を保存しました！ページをリロードすると反映されます。');
-    
+
   } catch (error) {
     console.error('Failed to save settings:', error);
     showStatus('error', '❌ 設定の保存に失敗しました');
@@ -85,7 +87,7 @@ saveBtn.addEventListener('click', async () => {
 function showStatus(type, message) {
   statusDiv.className = `status ${type}`;
   statusDiv.textContent = message;
-  
+
   // 3秒後に非表示
   setTimeout(() => {
     statusDiv.style.display = 'none';

@@ -15,7 +15,8 @@
     "alarms"
   ],
   "host_permissions": [
-    "http://localhost:3000/*"
+    "http://localhost:3000/*",
+    "https://learning-tracker-9mlpt84mv-tomato11111s-projects.vercel.app/*"
   ],
   "optional_host_permissions": [
     "https://*/*"
